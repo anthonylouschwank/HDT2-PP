@@ -15,6 +15,11 @@
  *              La Oficina Central posee una lista de pedidos y
  *              distribuye una parte a cada proceso utilizando
  *              MPI_Scatter().
+ *
+ *              Modificacion: cada ubicacion recibe dos datos en lugar
+ *              de uno (cantidad de pedidos y empleados disponibles).
+ *              El arreglo se organiza por pares consecutivos y se usa
+ *              sendcount = recvcount = 2.
  *----------------------------------------------------------------------*/
 
 #include <stdio.h>
@@ -24,8 +29,10 @@ int main(int argc, char *argv[]) {
 
     int rank;
     int size;
-    int pedidos[4];
-    int pedido_recibido;
+    // Pares consecutivos por ubicacion: {pedidos, empleados}
+    //   posiciones [0,1] -> rank 0, [2,3] -> rank 1, ...
+    int datos[8];
+    int datos_recibidos[2];    // [0] = pedidos, [1] = empleados
 
     // Inicializa el entorno MPI
     MPI_Init(&argc, &argv);
@@ -47,36 +54,36 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    // La Oficina Central define la cantidad de pedidos para cada ubicacion
+    // La Oficina Central define los pedidos y empleados de cada ubicacion
     if (rank == 0) {
 
-        pedidos[0] = 120;
-        pedidos[1] = 95;
-        pedidos[2] = 140;
-        pedidos[3] = 110;
+        datos[0] = 120;  datos[1] = 12;   // Oficina Central
+        datos[2] = 95;   datos[3] = 8;    // Sucursal 1
+        datos[4] = 140;  datos[5] = 15;   // Sucursal 2
+        datos[6] = 110;  datos[7] = 10;   // Sucursal 3
 
         printf("Oficina Central: distribuyendo pedidos...\n");
     }
 
-    // Distribuir un valor del arreglo a cada proceso
+    // Distribuir dos valores consecutivos del arreglo a cada proceso
     MPI_Scatter(
-        pedidos,
-        1,
+        datos,
+        2,
         MPI_INT,
-        &pedido_recibido,
-        1,
+        datos_recibidos,
+        2,
         MPI_INT,
         0,
         MPI_COMM_WORLD
     );
 
-    // Cada proceso muestra el valor que recibio
+    // Cada proceso muestra los valores que recibio
     if (rank == 0) {
-        printf("Oficina Central: %d pedidos asignados.\n",
-               pedido_recibido);
+        printf("Oficina Central: %d pedidos asignados, %d empleados disponibles.\n",
+               datos_recibidos[0], datos_recibidos[1]);
     } else {
-        printf("Sucursal %d: %d pedidos asignados.\n",
-               rank, pedido_recibido);
+        printf("Sucursal %d: %d pedidos asignados, %d empleados disponibles.\n",
+               rank, datos_recibidos[0], datos_recibidos[1]);
     }
 
     // Finaliza correctamente el entorno MPI
